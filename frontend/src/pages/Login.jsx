@@ -3,19 +3,80 @@ import React, { useState } from "react";
 export default function LoginModal({ onClose, onLogin }) {
   const [mode, setMode] = useState("login"); // 'login' | 'signup'
   const isLogin = mode === "login";
+  const [error, setError] = useState("");
 
-  function handleSubmit(e) {
+  // Validate confirm password matches password
+  const validatePasswords = (password, confirmPassword) => {
+    if (!isLogin && password !== confirmPassword) {
+      setError("Passwords do not match");
+      return false;
+    }
+    setError("");
+    return true;
+  };
+
+  async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+    const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(new FormData(e.currentTarget).entries());
-    // Demo auth: accept anything. Hook your real API here.
-    const user = {
-      name: data.fullName || "John Doe",
-      email: data.email,
-      level: data.experience || "Intermediate (2–4 years)"
-    };
-    onLogin?.(user);
-    onClose?.();
+
+    if (!validatePasswords(data.password, data.confirmPassword)) {
+      return;
+    }
+
+    
+    try {
+      let response;
+
+      if (isLogin) {
+        response = await fetch(`${API_URL}/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            username: data.email,
+            password: data.password,
+          }),
+        });
+      } else {
+        response = await fetch(`${API_URL}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: data.email,
+            username: data.fullName,
+            password: data.password,
+          }),
+        });
+    }
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || "Something went wrong");
+
+    // Save JWT token on login
+    if (isLogin) {
+        const { access_token } = result;
+        localStorage.setItem("access_token", access_token); // Match key used in userService
+
+        // Fetch user profile to get user data
+        const userResponse = await fetch(`${API_URL}/profile`, {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        });
+        const user = await userResponse.json();
+        onLogin?.(user); // Pass user data to parent
+      } else {
+        // On signup: Trigger login flow or show success
+        onLogin?.();
+      }
+
+      onClose?.();
+    } catch (err) {
+      setError(err.message);
+    }
   }
+
 
   return (
     <form className="list" style={{ gap: 14, minWidth: 300 }} onSubmit={handleSubmit}>
