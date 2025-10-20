@@ -1,13 +1,45 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-export default function ProfileModal({ user, onLogout, onClose }) {
+export default function ProfileModal({ onLogout, onClose }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch current user data when the modal mounts
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        setLoading(true);
+        const userData = await userService.getCurrentUser();
+        setUser(userData); // Update state with real user data
+      } catch (err) {
+        console.error("Failed to fetch user:", err);
+        setError("Could not load user data. Please log in again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+
   const initials = (user?.name || "JD")
     .split(" ")
     .map(s => s[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const handleLogout = () => {
+    userService.logout(); // Clear token from localStorage
+    onLogout(); // Notify parent component to redirect/logout
+    onClose(); // Close the modal
+  };
+
+  if (loading) return <div>Loading user...</div>;
+  if (error) return <div className="error">{error}</div>;
 
   return (
     <div style={{ minWidth: 360 }}>
@@ -21,7 +53,7 @@ export default function ProfileModal({ user, onLogout, onClose }) {
           <div className="kicker">{user?.email || "john.doe@example.com"}</div>
         </div>
       </div>
-
+      
       <div className="card" style={{ padding: 12 }}>
         <div className="p-muted" style={{ marginBottom: 8 }}>Quick Stats</div>
         <div style={{ display: "flex", gap: 16 }}>
