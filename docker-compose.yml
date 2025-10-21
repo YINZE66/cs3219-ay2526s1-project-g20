@@ -1,11 +1,23 @@
-version: "3.8"
 services:
+  user_service:
+    build: ./user_service          # <— path to the user service Dockerfile
+    container_name: user_service
+    ports:
+      - "8081:8081"                # host:container
+    environment:
+      - PORT=8081
+      # if needed for dev CORS:
+      - CORS_ORIGIN=http://localhost:3000
+
   ui:
     build: ./frontend
+    container_name: ui
     ports:
       - "3000:3000"
+    environment:
+      - VITE_USERS_URL=http://user_service:8081
+    depends_on:
+      - user_service
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      - NODE_ENV=development
